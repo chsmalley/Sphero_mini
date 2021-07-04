@@ -1,7 +1,9 @@
 import sphero_mini
 import sys
-from kano_wand.kano_wand import Shop, Wand, PATTERN
+from .kano_wand.kano_wand import Wand
 import moosegesture
+from typing import Any
+from bluepy.btle import DefaultDelegate, Scanner
 
 
 class SpheroWand(Wand):
@@ -9,19 +11,13 @@ class SpheroWand(Wand):
         super().__init__(*args, **kwargs)
         self.pressed = False
         self.positions = []
-        self.sphero_mac = 
+        if "sphero_mac" in kwargs.keys():
+            self.sphero_mac = kwargs["sphero_mac"]
+        else:
+            print("NO SPHERO MAC ADDRESS")
 
     def post_connect(self):
-        
-        # Connect to sphero
-        if len(sys.argv) < 2:
-            print("Usage: 'python [this_file_name.py] [sphero MAC address]'")
-            print("eg f2:54:32:9d:68:a4")
-            print("On Linux, use 'sudo hcitool lescan' to find your Sphero Mini's MAC address")
-            sphero = None
-        else:
-            MAC = sys.argv[1] # Get MAC address from command line argument
-            sphero = init_sphero(MAC)
+        self.sphero = init_sphero(self.sphero_mac)
         self.subscribe_button()
         self.subscribe_position()
 
@@ -32,16 +28,40 @@ class SpheroWand(Wand):
 
     def on_button(self, pressed):
         self.pressed = pressed
-
         if not pressed:
             # If releasing the button, print out the gestures and reset the positions
             gesture = moosegesture.getGesture(self.positions)
-            self.positions = []
-
             print(gesture)
-            # If it is a counterclockwise circle disconnect the wand
-            if gesture == ['R', 'UR', 'U', 'UL', 'L', 'DL', 'D', 'DR', 'R']:
-                self.disconnect()
+            self.positions = []
+            self.sphero.setLEDColor(red=0, green=255, blue=0)
+            for g in gesture:
+                control_sphero_gesture(self.sphero, g)
+            self.sphero.roll(0, 0)  # stop
+            self.sphero.wait(1)  # Allow time to stop
+            self.sphero.setLEDColor(red=255, green=0, blue=0)
+
+    def disconnect(self):
+        super().disconnect()
+        self.sphero.sleep()
+        self.sphero.disconnect()
+
+def control_sphero_gesture(
+    sphero: sphero_mini.sphero_mini,
+    gesture: str
+) -> None:
+    heading = 0
+    speed = 0
+    if "R" in gesture:
+        heading += 50
+    if "L" in gesture:
+        heading -+ 50
+    if "U" in gesture:
+        speed += 100
+    if "D" in gesture:
+        speed -= 100
+    sphero.roll(speed, heading)
+    sphero.wait(2)  # Keep rolling for two seconds
+
 
 def init_sphero(MAC: str) -> sphero_mini.sphero_mini:
     # Connect:
@@ -73,34 +93,95 @@ def init_sphero(MAC: str) -> sphero_mini.sphero_mini:
     return sphero
 
 
+class WandSpheroScanner(DefaultDelegate):
+    """A scanner class to connect to wands
+    """
+    def __init__(
+        self,
+        kano_mac: str,
+        sphero_mac: str,
+        debug: bool=False
+    ):
+        """Create a new scanner
+
+        Keyword Arguments:
+            wand_class {class} -- Class to use when connecting to wand (default: {Wand})
+            debug {bool} -- Print debug messages (default: {False})
+        """
+        super().__init__()
+        self.wand_class = SpheroWand
+        self.debug = debug
+        self._kano_mac = kano_mac
+        self._sphero_mac = sphero_mac
+        self.kano_device = None
+        self.sphero_device = None
+        self.wand = None
+        self._scanner = Scanner().withDelegate(self)
+
+    def scan(
+        self,
+        timeout: float=1.0,
+        connect: bool=False
+    ):
+        """Scan for devices
+
+        Keyword Arguments:
+            timeout {float} -- Timeout before returning from scan (default: {1.0})
+            connect {bool} -- Connect to the wands automatically (default: {False})
+
+        Returns {Wand} -- wand objects
+        """
+
+        if self.debug:
+            print("Scanning for {} seconds...".format(timeout))
+
+        self._scanner.scan(timeout)
+        if connect:
+            self.wand.connect()
+        return self.wand
+
+    def handleDiscovery(self, device, isNewDev, isNewData):
+        """Check if the device matches
+
+        Arguments:
+            device {bluepy.ScanEntry} -- Device data
+            isNewDev {bool} -- Whether the device is new
+            isNewData {bool} -- Whether the device has already been seen
+        """
+
+        if isNewDev:
+            # Perform initial detection attempt
+            if device.addr == self._kano_mac:
+                self.kano_device = device
+                if self.debug:
+                    print("found kano wand")
+            if device.addr == self._sphero_mac:
+                self.sphero_device = device
+                if self.debug:
+                    print("found sphero device")
+            if self.kano_device is not None and self.sphero_device is not None:
+                if self.debug:
+                    print("creating sphero wand")
+                self.wand = SpheroWand(device,
+                                       sphero_mac=self._sphero_mac,
+                                       debug=self.debug)
+
+
 if __name__ == '__main__':
+    print("On Linux, use 'sudo hcitool lescan' to find your Sphero Mini's MAC address")
+    kano_mac = sys.argv[1]
+    sphero_mac = sys.argv[2]
     # Create a new wand scanner
-    # shop = Shop(wand_class=SpheroWand, debug=debug)
-    wand = SpheroWant()
-    wands = []
+    shop = WandSpheroScanner(kano_mac, sphero_mac)
+    wand = None
     try:
         # While we don't have any wands
-        while len(wands) == 0:
+        while wand is None:
             print("Scanning...")
             # Scan for wands and automatically connect
-            wands = shop.scan(connect=True)
+            wand = shop.scan(connect=True)
+            print("after scan")
+        print("out of while loop")
     # Detect keyboard interrupt and disconnect wands
     except KeyboardInterrupt as e:
-        for wand in wands:
-            wand.disconnect()
-
-        while True:
-            try:
-                # Read wand 
-
-                # if wand command send to sphero
-                sphero.setLEDColor(red = 0, green = 255, blue = 0)
-                sphero.roll(30, 0)
-                
-                # Else change color
-                sphero.setLEDColor(red = 255, green = 0, blue = 0) # Turn LEDs green
-            except KeyboardInterrupt:
-                sphero.wait(1)  # Allow time to stop
-                sphero.sleep()
-                sphero.disconnect()
-                break
+        wand.disconnect()
