@@ -2,20 +2,19 @@ import sys
 from .kano_wand.kano_wand import Wand
 from typing import Any
 from bluepy.btle import DefaultDelegate, Scanner
-import RPi.GPIO as GPIO
+from gpiozero import Motor
+import time
 
 
 class BubbleWand(Wand):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.pwm_pin = 18  # Broadcom pin 18 (P1 pin 12)
-        GPIO.setup(self.pwm_pin, GPIO.OUT)  # PWM pin set as output
-        self.pwm = GPIO.PWM(self.pvm_pin, 50)
-        self.duty_cycle
-        self.pwm.start(self.duty_cycle)
+        self.candy_motor = Motor(forward=4, backward=14)
+        self.bubble_motor = Motor(forward=17, backward=27)
         
     def post_connect(self):
         self.subscribe_button()
+        self.subscribe_position()
 
     def on_position(self, x, y, pitch, roll):
         if self.pressed:
@@ -23,7 +22,13 @@ class BubbleWand(Wand):
             self.positions.append(tuple([x, -1 * y]))
 
     def on_button(self, pressed):
+        print(f"on_button: {pressed}")
         self.pressed = pressed
+        self.candy_motor.forward()
+        self.bubble_motor.forward()
+        time.sleep(2)
+        self.candy_motor.stop()
+        self.bubble_motor.stop()
 
 
 class BubbleWandScanner(DefaultDelegate):
