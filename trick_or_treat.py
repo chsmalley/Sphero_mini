@@ -12,19 +12,29 @@ def trick_or_treat():
     # Setup buttons
     candy_button = Button(2)
     bubble_button = Button(3)
+    # Setup LEDs
+    candy_led = LED(20)
+    bubble_led = LED(21)
     # main loop
     try:
         while True:
             if candy_button.is_pressed:
                 print("candy button pressed")
-                self.candy_motor.forward()
+                candy_motor.forward()
+                candy_led.on()
                 time.sleep(CANDY_TIME)
-                self.candy_motor.stop()
+                candy_motor.stop()
+                candy_led.off()
             elif bubble_button.is_pressed:
                 print("bubble button pressed")
-                self.bubble_motor.forward()
+                bubble_motor.forward()
+                bubble_led.on()
                 time.sleep(BUBBLE_TIME)
-                self.bubble_motor.stop()
+                bubble_motor.stop()
+                bubble_led.off()
+            else:
+                # Don't run too fast
+                time.sleep(0.01)
     except KeyboardInterrupt:
         candy_motor.stop()
         bubble_motor.stop()
@@ -33,3 +43,4 @@ def trick_or_treat():
 if __name__ == '__main__':
     print("Welcome trick or treaters")
     trick_or_treat()
+    print("goodbye")
