@@ -1,4 +1,4 @@
-import sphero_mini
+from .sphero_mini import sphero_mini
 import sys
 
 if len(sys.argv) < 2:
@@ -7,10 +7,10 @@ if len(sys.argv) < 2:
     print("On Linux, use 'sudo hcitool lescan' to find your Sphero Mini's MAC address")
     exit(1)
 
-MAC = sys.argv[1] # Get MAC address from command line argument
-
+# MAC = sys.argv[1] # Get MAC address from command line argument
+MAC = "EB:B6:31:82:7C:F0"
 # Connect:
-sphero = sphero_mini.sphero_mini(MAC, verbosity = 1)
+sphero = sphero_mini(MAC, verbosity = 1)
 
 # battery voltage
 sphero.getBatteryVoltage()

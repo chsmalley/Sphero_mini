@@ -1,6 +1,6 @@
 from bluepy.btle import Peripheral
 from bluepy import btle
-from sphero_constants import *
+from .sphero_constants import *
 import struct
 import time
 import sys
@@ -533,7 +533,7 @@ class MyDelegate(btle.DefaultDelegate):
                     checksum = (checksum + num) & 0xFF # bitwise "and to get modulo 256 sum of appropriate bytes
                 checksum = 0xff - checksum # bitwise 'not' to invert checksum bits
                 if checksum != chsum: # check computed checksum against that recieved in the packet
-                    print("Warning: notification packet checksum failed", self.notificationPacket, file=sys.stderr)
+                    # print("Warning: notification packet checksum failed", self.notificationPacket, file=sys.stderr)
                     self.notificationPacket = [] # Discard this packet
                     return # exit
 
